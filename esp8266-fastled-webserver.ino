@@ -24,7 +24,7 @@ extern "C" {
 }
 
 #include <ESP8266WiFi.h>
-//#include <ESP8266mDNS.h>
+#include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <WebSocketsServer.h>
@@ -52,12 +52,12 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 
 #include "FSBrowser.h"
 
-#define DATA_PIN      D4
-#define LED_TYPE      WS2811
+#define DATA_PIN      D5
+#define LED_TYPE      WS2812B
 #define COLOR_ORDER   GRB
-#define NUM_LEDS      24
+#define NUM_LEDS      100
 
-#define MILLI_AMPS         2000     // IMPORTANT: set the max milli-Amps of your power supply (4A = 4000mA)
+#define MILLI_AMPS         6500     // IMPORTANT: set the max milli-Amps of your power supply (4A = 4000mA)
 #define FRAMES_PER_SECOND  120 // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
 
 CRGB leds[NUM_LEDS];
@@ -68,7 +68,7 @@ uint8_t brightnessIndex = 0;
 
 // ten seconds per color palette makes a good demo
 // 20-120 is better for deployment
-uint8_t secondsPerPalette = 10;
+uint8_t secondsPerPalette = 60;
 
 // COOLING: How much does the air cool as it rises?
 // Less cooling = taller flames.  More cooling = shorter flames.
@@ -130,7 +130,7 @@ typedef PatternAndName PatternAndNameList[];
 // List of patterns to cycle through.  Each is defined as a separate function below.
 
 PatternAndNameList patterns = {
-  { pride,                  "Pride" },
+  { showSolidColor,         "Solid Color" }
   { colorWaves,             "Color Waves" },
 
   // twinkle patterns
@@ -138,6 +138,20 @@ PatternAndNameList patterns = {
   { snowTwinkles,           "Snow Twinkles" },
   { cloudTwinkles,          "Cloud Twinkles" },
   { incandescentTwinkles,   "Incandescent Twinkles" },
+
+  { rainbow,                "Rainbow" },
+  { rainbowWithGlitter,     "Rainbow With Glitter" },
+  { rainbowSolid,           "Solid Rainbow" },
+  { rainbowSolidSpeed,      "Solid Rainbow Speed" },
+  { pride,                  "Pride" },
+  { confetti,               "Confetti" },
+  { rolling,                "Rolling" },
+  { thunderburst,            "Thunder Burst" },
+  { sinelon,                "Sinelon" },
+  { bpm,                    "Beat" },
+  { juggle,                 "Juggle" },
+  { fire,                   "Fire" },
+  { water,                  "Water" },
 
   // TwinkleFOX patterns
   { retroC9Twinkles,        "Retro C9 Twinkles" },
@@ -154,18 +168,7 @@ PatternAndNameList patterns = {
   { fireTwinkles,           "Fire Twinkles" },
   { cloud2Twinkles,         "Cloud 2 Twinkles" },
   { oceanTwinkles,          "Ocean Twinkles" },
-
-  { rainbow,                "Rainbow" },
-  { rainbowWithGlitter,     "Rainbow With Glitter" },
-  { rainbowSolid,           "Solid Rainbow" },
-  { confetti,               "Confetti" },
-  { sinelon,                "Sinelon" },
-  { bpm,                    "Beat" },
-  { juggle,                 "Juggle" },
-  { fire,                   "Fire" },
-  { water,                  "Water" },
-
-  { showSolidColor,         "Solid Color" }
+ 
 };
 
 const uint8_t patternCount = ARRAY_SIZE(patterns);
@@ -285,8 +288,13 @@ void setup() {
       Serial.print(".");
     }
 
+
+    MDNS.begin("CLOUD");
+
     Serial.print("Connected! Open http://");
     Serial.print(WiFi.localIP());
+    Serial.print("Hostname is:");
+    Serial.print(WiFi.hostname());
     Serial.println(" in your browser");
   }
 
@@ -981,6 +989,12 @@ void rainbowSolid()
   fill_solid(leds, NUM_LEDS, CHSV(gHue, 255, 255));
 }
 
+void rainbowSolidSpeed()
+{
+  fill_solid(leds, NUM_LEDS, CHSV(gHue, 255, 255));
+  delay(random(10, speed));
+}
+
 void confetti()
 {
   // random colored speckles that blink in and fade smoothly
@@ -988,6 +1002,56 @@ void confetti()
   int pos = random16(NUM_LEDS);
   // leds[pos] += CHSV( gHue + random8(64), 200, 255);
   leds[pos] += ColorFromPalette(palettes[currentPaletteIndex], gHue + random8(64));
+}
+
+void rolling(){
+  // a simple method where we go through every LED with 1/10 chance
+  // of being turned on, up to 10 times, with a random delay wbetween each time
+  for(int r=0;r<random(2,10);r++){
+    //iterate through every LED
+    for(int i=0;i<NUM_LEDS;i++){
+      if(random(0,100)>90){
+        leds[i] = CHSV( 0, 0, 255); 
+
+      }
+      else{
+        //dont need reset as we're blacking out other LEDs her 
+        leds[i] = CHSV(0,0,0);
+      }
+    }
+    delay(random(10,speed));    
+  }
+}
+
+void thunderburst(){
+
+  // this thunder works by lighting two random lengths
+  // of the strand from 10-20 pixels. 
+  int rs1 = random(0,NUM_LEDS/2);
+  int rl1 = random(10,20);
+  int rs2 = random(rs1+rl1,NUM_LEDS);
+  int rl2 = random(10,20);
+  
+  //repeat this chosen strands a few times, adds a bit of realism
+  for(int r = 0;r<random(3,6);r++){
+    
+    for(int i=0;i< rl1; i++){
+      leds[i+rs1] = CHSV( 0, 0, 255);
+    }
+    
+    if(rs2+rl2 < NUM_LEDS){
+      for(int i=0;i< rl2; i++){
+        leds[i+rs2] = CHSV( 0, 0, 255);
+      }
+    }
+ 
+    //stay illuminated for a set time
+    FastLED.show();
+    delay(random(10,150));
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    delay(random(10,speed));
+  }
+  
 }
 
 void sinelon()
